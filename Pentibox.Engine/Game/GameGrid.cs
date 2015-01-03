@@ -34,13 +34,18 @@ namespace Pentibox.Engine
 
         public bool IsOccupied(GridLocation location)
         {
-            this.CheckLocationBounds(location);
-            return this.cells[location.Row, location.Column];
+            return this.IsOccupied(location.Row, location.Column);
         }
 
-        private void CheckLocationBounds(GridLocation location)
+        public bool IsOccupied(int row, int column)
         {
-            if (location.Row >= this.rowCount || location.Column >= this.columnCount)
+            this.CheckLocationBounds(row, column);
+            return this.cells[row, column];
+        }
+
+        private void CheckLocationBounds(int row, int column)
+        {
+            if (row >= this.rowCount || column >= this.columnCount)
             {
                 throw new ArgumentOutOfRangeException("cell");
             }
@@ -50,9 +55,14 @@ namespace Pentibox.Engine
         {
             foreach (var location in locations)
             {
-                this.CheckLocationBounds(location);
+                this.CheckLocationBounds(location.Row, location.Column);
                 this.cells[location.Row, location.Column] = occupied;
             }
+        }
+
+        public void Reset()
+        {
+            this.cells = new bool[this.rowCount, this.columnCount];
         }
     }
 }

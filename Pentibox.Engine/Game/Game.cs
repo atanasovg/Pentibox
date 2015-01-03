@@ -9,13 +9,18 @@ namespace Pentibox.Engine
         private IGameGrid grid;
         private Figure currentFigure;
         private bool isRunning;
+        private bool isFinished;
 
         public Game()
         {
-            this.grid = new GameGrid(30, 15);
+            this.grid = new GameGrid(20, 8);
         }
 
         public event EventHandler<FigureChangedEventArgs> FigureChanged;
+
+        public event EventHandler<LinesCompletedEventArgs> LinesCompleted;
+
+        public event EventHandler<EventArgs> Finished;
 
         public IGameGrid Grid
         {
@@ -33,6 +38,14 @@ namespace Pentibox.Engine
             }
         }
 
+        public bool IsFinished
+        {
+            get
+            {
+                return this.isFinished;
+            }
+        }
+
         public void Start()
         {
             if (this.isRunning)
@@ -40,9 +53,8 @@ namespace Pentibox.Engine
                 return;
             }
 
-            this.currentFigure = this.CreateFigure();
-            this.OnFigureChanged(null, this.currentFigure.Locations);
             this.isRunning = true;
+            this.isFinished = false;
         }
 
         public void Stop()
@@ -56,10 +68,30 @@ namespace Pentibox.Engine
         public void OnTick()
         {
             this.VerifyRunning();
-            this.DoTransaction(this.currentFigure.MoveDown, true);
+
+            if (this.currentFigure == null)
+            {
+                this.CreateFigure();
+            }
+            else
+            {
+                var success = this.DoMove(this.currentFigure.MoveDown);
+
+                if (!success)
+                {
+                    this.CheckLines();
+                    this.CreateFigure();
+                }
+            }
         }
 
-        public void OnRotate(bool clockWise)
+        public void MoveDown()
+        {
+            this.VerifyRunning();
+            this.DoMove(this.currentFigure.MoveDown);
+        }
+
+        public void Rotate(bool clockWise)
         {
             this.VerifyRunning();
 
@@ -72,40 +104,90 @@ namespace Pentibox.Engine
             {
                 method = this.currentFigure.RotateCounterClockwise;
             }
-            this.DoTransaction(method, false);
+            this.DoMove(method);
         }
 
-        protected virtual void OnFigureChanged(IEnumerable<GridLocation> previousLocations, IEnumerable<GridLocation> currentLocations)
+        public void MoveLeft()
+        {
+            this.VerifyRunning();
+            this.DoMove(this.currentFigure.MoveLeft);
+        }
+
+        public void MoveRight()
+        {
+            this.VerifyRunning();
+            this.DoMove(this.currentFigure.MoveRight);
+        }
+
+        protected virtual void OnFigureChanged(FigureChangedEventArgs e)
         {
             var eh = this.FigureChanged;
-            if (eh == null)
+            if (eh != null)
             {
-                return;
-            }
-
-            var args = new FigureChangedEventArgs(previousLocations, currentLocations);
-            eh(this, args);
-        }
-
-        private void DoTransaction(Func<bool> method, bool checkLines)
-        {
-            var prevLocation = this.currentFigure.Locations.ToArray();
-            if (method())
-            {
-                this.OnFigureChanged(prevLocation, this.currentFigure.Locations);
-            }
-            else if (checkLines)
-            {
-                // TODO: Check for comleted lines and start a new figure
+                eh(this, e);
             }
         }
 
-        private Figure CreateFigure()
+        protected virtual void OnFinished(EventArgs e)
         {
-            var figure = new Figure(new Layouts.FigureLayout1());
-            figure.Initialize(this.grid);
+            var eh = this.Finished;
+            if (eh != null)
+            {
+                eh(this, e);
+            }
+        }
 
-            return figure;
+        protected virtual void OnLinesCompleted(LinesCompletedEventArgs e)
+        {
+            var eh = this.LinesCompleted;
+            if (eh != null)
+            {
+                eh(this, e);
+            }
+        }
+
+        private bool DoMove(Func<bool> method)
+        {
+            var prevLocations = this.currentFigure.Locations.ToArray();
+
+            // clear the current locations to enable valid new locations check
+            this.grid.Update(prevLocations, false);
+
+            // call the move method
+            bool success = method();
+
+            // occupy the current locations again
+            this.grid.Update(this.currentFigure.Locations, true);
+
+            if (success)
+            {
+                var args = new FigureChangedEventArgs(prevLocations, this.currentFigure.Locations);
+                this.OnFigureChanged(args);
+            }
+
+            return success;
+        }
+
+        private void DoFinish()
+        {
+            this.isRunning = false;
+            this.isFinished = true;
+            this.grid.Reset();
+
+            this.OnFinished(EventArgs.Empty);
+        }
+
+        private void CreateFigure()
+        {
+            this.currentFigure = new Figure(new Layouts.FigureLayout1());
+            if (!this.currentFigure.Initialize(this.grid))
+            {
+                this.DoFinish();
+            }
+            else
+            {
+                this.OnFigureChanged(new FigureChangedEventArgs(null, this.currentFigure.Locations));
+            }
         }
 
         private void VerifyRunning()
@@ -113,6 +195,35 @@ namespace Pentibox.Engine
             if (!this.isRunning)
             {
                 throw new InvalidOperationException("Game is not running");
+            }
+        }
+
+        private void CheckLines()
+        {
+            List<int> completedLines = new List<int>();
+
+            for (int row = 0; row < this.grid.RowCount; row++)
+            {
+                var hasLine = true;
+                for (int column = 0; column < this.grid.ColumnCount; column++)
+                {
+                    if (!this.grid.IsOccupied(row, column))
+                    {
+                        hasLine = false;
+                        break;
+                    }
+                }
+
+                if (hasLine)
+                {
+                    completedLines.Add(row);
+                }
+            }
+
+            if (completedLines.Count > 0)
+            {
+                // TODO: Clear the line and scroll down other occupied locations
+                this.OnLinesCompleted(new LinesCompletedEventArgs(completedLines.ToArray()));
             }
         }
     }

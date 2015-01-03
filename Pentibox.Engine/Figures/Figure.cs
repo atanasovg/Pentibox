@@ -178,15 +178,13 @@ namespace Pentibox.Engine
         private bool CanOffset(int byRows, int byColumns)
         {
             // check row bounds
-            if (this.location.Row + this.rowSpan + byRows > this.grid.RowCount || 
-                this.location.Row + this.rowSpan + byRows < 0)
+            if (this.location.Row + byRows < 0 || this.location.Row + this.rowSpan + byRows > this.grid.RowCount)
             {
                 return false;
             }
 
             // check column bounds
-            if (this.location.Column + this.columnSpan + byColumns > this.grid.ColumnCount || 
-                this.location.Column + this.columnSpan + byColumns < 0)
+            if (this.location.Column + byColumns < 0 || this.location.Column + this.columnSpan + byColumns > this.grid.ColumnCount)
             {
                 return false;
             }
@@ -195,7 +193,7 @@ namespace Pentibox.Engine
             bool canOffset = true;
             foreach (var location in this.locations)
             {
-                if (this.grid.IsOccupied(new GridLocation(location.Row + byRows, location.Column + byColumns)))
+                if (this.grid.IsOccupied(location.Row + byRows, location.Column + byColumns))
                 {
                     canOffset = false;
                     break;

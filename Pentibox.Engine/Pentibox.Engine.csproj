@@ -114,6 +114,7 @@
     <Compile Include="Game\GameGrid.cs" />
     <Compile Include="Game\GridLocation.cs" />
     <Compile Include="Game\IGameGrid.cs" />
+    <Compile Include="Game\LinesCompletedEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '12.0' ">
